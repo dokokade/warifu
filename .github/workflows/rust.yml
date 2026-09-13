@@ -27,6 +27,42 @@ env:
   CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
+  # **Windows でも試験を回す**（2026-09-13）。
+  #
+  # ここが無かったため、**Windows 固有の不具合は CI では永久に出なかった** ——
+  # `gh issue 6`（**Windows に `HOME` は無い**ので、画面も CLI も起動できなかった）は
+  # **別マシンの人が実物で踏んで初めて分かった。**
+  # `rust.yml` / `desktop.yml` は ubuntu だけ、`release.yml` の windows 段は
+  # **建てるだけ**で試験を回していない。
+  #
+  # **fmt と clippy は ubuntu 側だけで見る**（同じものを 2 回見ない）。
+  # ここで見たいのは「**その OS で振る舞いが変わる所**」である。
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: toolchain
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+
+      - name: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: rust-windows-${{ hashFiles('Cargo.lock') }}
+          restore-keys: rust-windows-
+
+      # **画面の crate は workspace の外**なので、ここでは回らない
+      # （あちらは `release.yml` の windows 段で建てている）
+      - name: cargo test
+        run: cargo test --workspace --locked
+
   gate:
     runs-on: ubuntu-latest
     steps:
