@@ -103,7 +103,14 @@ async fn 動いているこの機械は_横取りされない() {
 ///
 /// **環境変数を試験の中で書き換えない**（この crate は `unsafe` を禁じているし、
 /// 並んで走る試験に漏れる）。**決め方を純粋な関数にして、そこを見る。**
+///
+/// **Windows は形が違う。**名前付きパイプは「場所」ではなく**名前**なので、
+/// `\\.\pipe\warifu-desk-<印>` になる（`place.rs`）。
+/// **2026-09-13 に CI で Windows の試験を回して、ここが落ちて分かった** ——
+/// それまで**この試験は Unix の形しか見ていなかった。**
+/// 見たいのは「**家を分ければ口も分かれる**」であって、パスの形ではない。
 #[test]
+#[cfg(not(windows))]
 fn 家を指定すれば_この機械の口も分かれる() {
     use std::ffi::OsString;
     use std::path::Path;
@@ -136,7 +143,40 @@ fn 家を指定すれば_この機械の口も分かれる() {
     assert!(場所を決める(None, None, None).ends_with("desk.sock"));
 }
 
+/// **Windows でも、家を分ければ口が分かれる。**
+///
+/// 名前付きパイプは**名前の取り合い**なので、分かれていなければ
+/// **同じ機械の 2 つ目の身元が口を開けない**（そこが D55 の眼目である）。
 #[test]
+#[cfg(windows)]
+fn 家を指定すれば_この機械の口も分かれる() {
+    use std::ffi::OsString;
+    use warifu_desk::場所を決める;
+
+    let 既定 = 場所を決める(None, None, None);
+    let 家 = Some(OsString::from(r"C:\tmp\warifu-b"));
+    let 別 = 場所を決める(家.as_deref(), None, None);
+
+    // **パイプの名前であること**（場所ではない）
+    assert!(
+        既定.to_string_lossy().starts_with(r"\\.\pipe\warifu-desk"),
+        "既定はパイプの名前: {}",
+        既定.display()
+    );
+    // **家を分ければ、名前も分かれる**
+    assert_ne!(既定, 別, "家を分けたら口も分かれる");
+    assert!(
+        別.to_string_lossy().starts_with(r"\\.\pipe\warifu-desk-"),
+        "分けた口も同じ形: {}",
+        別.display()
+    );
+    // **実行時ディレクトリには引っ張られない**（Windows では見ない）
+    let 実行時 = Some(OsString::from(r"C:\run"));
+    assert_eq!(場所を決める(家.as_deref(), 実行時.as_deref(), None), 別);
+}
+
+#[test]
+#[cfg(not(windows))]
 fn 家を指定すると_実行時ディレクトリより優先する() {
     // **試験のために家を分けたのに、実行時ディレクトリに引っ張られては意味がない**
     use std::ffi::OsString;
