@@ -1076,7 +1076,11 @@ fn 汲む(
                             let 棚 = conferences.lock().await;
                             棚.get(meeting).map(|c| c.members().first() == Some(&me))
                         };
-                        if 主催 == Some(true) {
+                        // **配るのは「新入りが自分の住所を名乗った」ときだけ**
+                        // （`配ってよいか`）。第三者の紹介を受けて配り直すと、
+                        // **両側が「自分が主催だ」と思っている場合に往復する** ——
+                        // 2026-09-13 に実測: **66 ミリ秒で約 130 件**来て `lost` になった
+                        if contacts::配ってよいか(主催 == Some(true), peer, *who) {
                             紹介を配る(&conferences, &outbound, &addresses, me, *who, *meeting)
                                 .await;
                         } else if contacts::呼びに行かせるか(peer, *who) {
