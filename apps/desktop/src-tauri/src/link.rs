@@ -79,13 +79,40 @@ const 鍵の上限: usize = 4096;
 /// **画面が答えたら減る**（`link_answered`）。数えるのはここ 1 か所だけにする。
 static 待っているリンク: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
+/// **どのルームについて待っているか**（`gh issue 12`）。
+///
+/// エージェントの言 ——
+///
+/// > 人が画面のボタンを押したかどうかを、エージェントから知る手段がありません。
+///
+/// 本数だけでは「**誰に声をかければいいか**」が分からない。
+/// **ルーム id を添える**（リンクの中に入っている）。
+///
+/// **ルームキーそのものは入れない** —— あれは割符の片割れで、
+/// **`room_status` は札さえあれば誰でも読める**（`chat.read`）。
+static 待っているルーム: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
 /// いま待っているリンクの数。
 pub fn 待っている数() -> usize {
     待っているリンク.load(std::sync::atomic::Ordering::Relaxed)
 }
 
+/// **いま答えを待っているルーム**（古い順）。分からないものは入らない。
+pub fn 待っているルームたち() -> Vec<String> {
+    待っているルーム
+        .lock()
+        .map(|棚| 棚.clone())
+        .unwrap_or_default()
+}
+
 /// 人が答えた（入る／入らない）。**0 より下げない。**
 pub fn 答えた() {
+    // **いちばん古いものから消す。**画面は 1 つずつ尋ねる
+    if let Ok(mut 棚) = 待っているルーム.lock()
+        && !棚.is_empty()
+    {
+        棚.remove(0);
+    }
     let _ = 待っているリンク.fetch_update(
         std::sync::atomic::Ordering::Relaxed,
         std::sync::atomic::Ordering::Relaxed,
@@ -102,6 +129,13 @@ pub fn 受ける(app: &AppHandle, urls: &[String]) {
         };
         記録!("リンクを受け取りました（人に尋ねます）");
         待っているリンク.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        // **どのルームかを控える**（`gh issue 12`）。
+        // **読めない鍵は控えない** —— 分からないものを分かるように見せない
+        if let Ok((_, _, ルーム)) = warifu_app::parse_invite(&鍵)
+            && let Ok(mut 棚) = 待っているルーム.lock()
+        {
+            棚.push(ルーム.to_string());
+        }
         let _ = app.emit(EVENT_LINK, 鍵);
     }
 }
