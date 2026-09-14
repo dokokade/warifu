@@ -6,6 +6,7 @@
 ## 必読
 
 - **`.claude/rules/product-baseline.md`** — 開発のベースルール。**最優先で従うこと**。
+- **`.claude/rules/踏んだ落とし穴.md`** — **このリポで実際に踏んだもの**（シェルの変数名・Python の文字コード・CI の段の順番・`spctl`・`cp` の上書き）。**同じ所を 3 度踏んでいる。**
 - **`PRD.md`** — このプロダクトの方向性・仕様。
 - **`.claude/roadmap.md`** — フェーズと進め方。
 - **`.claude/issues/`** — 着手すべきローカル Issue。
